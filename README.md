@@ -1,6 +1,6 @@
 # yqprpc
 
-可以定义自己想要传输传输的对象，把对象声明放在proto.h中，需要实现 serialize &serialization(serialize &s)和serialize &deserialization(serialize &s)方法，基本类型(除了__int128)以及std::string可以直接作为客户端调用call<>方法的参数。但是本框架最多只能绑定含五个参数的函数(调用类中的函数时类对象指针不作为五个参数中的一个)，而且绑定函数时，使用函数名作为键，所以若函数同名，则会取消先前绑定的同名函数。本框架假设在网络传输时不会出现错误，本框架使用C++ 11编译。
+可以定义自己想要当作参数传输的对象，把对象声明放在proto.h中，需要实现 serialize &serialization(serialize &s)和serialize &deserialization(serialize &s)方法，基本类型(除了__int128)以及std::string可以直接作为客户端调用call<>方法的参数。但是本框架最多只能绑定含五个参数的函数(调用类中的函数时类对象指针不作为五个参数中的一个)，而且绑定函数时，使用函数名作为键，所以若函数同名，则会取消先前绑定的同名函数。本框架假设在网络传输时不会出现错误，本框架使用C++ 11编译。
 
 #### 下面是一个小例子
 
