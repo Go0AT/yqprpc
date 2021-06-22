@@ -1,50 +1,34 @@
 # yqprpc
 
-可以定义自己想要当作参数传输的对象，把对象声明放在proto.h中，需要实现 serialize &serialization(serialize &s)和serialize &deserialization(serialize &s)方法，基本类型(除了__int128)以及std::string可以直接作为客户端调用call<>方法的参数。但是本框架最多只能绑定含五个参数的函数(调用类中的函数时类对象指针不作为五个参数中的一个)，而且绑定函数时，使用函数名作为键，所以若函数同名，则会取消先前绑定的同名函数。本框架假设在网络传输时不会出现错误，本框架使用C++ 11编译。
+可以定义自己想要当作参数传输的对象，把对象声明放在transobject.h中，需要实现 serialize &serialization(serialize &s)和serialize &deserialization(serialize &s)方法，客户端在使用call<>()时，需要传入调用远程函数需要的参数类(继承自message虚基类(放于proto.h中)，需要实现virtual serialize &serialization(serialize &s)方法)，参数类存放于funparam.h中，使用参数类可以使服务器bind的可被远程调用的函数所需要的参数的数量不受限制(把需要调用的函数用新函数包装起来，相当于让用户解决了这个问题)(之前想过用C++ 11泛型解决，还没想到解决办法)。框架使用函数名作为键，所以若函数同名，则会取消先前绑定的同名函数。本框架假设在网络传输时不会出现错误，本框架使用C++ 11编译。
 
 #### 下面是一个小例子
-
-#### Proto
-
-```C++
-#ifndef PROTO_H__
-#define PROTO_H__
-
-#include "serialize.h"
-
-class valtype{
-public:
-    int a,b;
-    serialize &serialization(serialize &s){
-        s << a << b;
-        return s;
-    }
-    serialize &deserialization(serialize &s){
-        s >> a >> b;
-        return s;
-    }
-};
-
-
-#endif
-```
 
 #### Server
 
 ```C++
 #include "yqprpc.h"
-#include "proto.h"
+#include "funparam.h"
 #include <iostream>
 #include <algorithm>
-int test(int a,int b,int c){
+int test(const char *data,size_t lens){
+    int a,b,c;
+    serialize s(streambuffer(data,lens));
+    s >> a >> b >> c;
     return a + b + c;
 }
 
-void test2(std::string str){
+void test2(const char *data,size_t lens){
+    std::string str;
+    serialize s(streambuffer(data,lens));
+    s >> str;
     std::cout << str << std::endl;
 }
 
-std::string test3(std::string str){
+std::string test3(const char *data,size_t lens){
+    std::string str;
+    serialize s(streambuffer(data,lens));
+    s >> str;
     std::reverse(str.begin(),str.end());
     return str;
 }
@@ -52,17 +36,23 @@ std::string test3(std::string str){
 class A{
 public:
     int a;
-    void test4(){
+    void test4(const char *data,size_t lens){
         std::cout << a << std::endl;
     }
 };
 
-void test5(valtype tmp){
+void test5(const char *data,size_t lens){
+    valtype tmp;
+    serialize s(streambuffer(data,lens));
+    s >> tmp;
     std::cout << tmp.a << std::endl;
     std::cout << tmp.b << std::endl;
 }
 
-double test6(double a){
+double test6(const char *data,size_t lens){
+    double a;
+    serialize s(streambuffer(data,lens));
+    s >> a;
     return --a;
 }
 
@@ -87,25 +77,150 @@ int main(){
 
 ```C++
 #include "yqprpc.h"
-#include "proto.h"
+#include "funparam.h"
 #include <cstdio>
 #include <iostream>
 
 int main(){
     yqprpc client;
     client.asclient("127.0.0.1",2021);
-    int ret = client.call<int>("test",1,2,3);
+    int ret = client.call<int>(msgtest("test",1,2,3));
     printf("ret = %d\n",ret);
     std::string str("123");
-    client.call<void>("test2",str);
-    str = client.call<std::string>("test3",str);
+    client.call<void>(msgtest2("test2",str));
+    str = client.call<std::string>(msgtest3("test3",str));
     std::cout << str << std::endl;
-    client.call<void>("test4");
+    client.call<void>(msgtest4("test4"));
     valtype tmp;
     tmp.a = 456;
     tmp.b = 654;
-    client.call<void>("test5",tmp);
-    std::cout << client.call<double>("test6",3.14) << std::endl;
+    client.call<void>(msgtest5("test5",tmp));
+    std::cout << client.call<double>(msgtest6("test6",3.14)) << std::endl;
     return 0;
 }
+```
+
+#### Proto
+
+```C++
+#ifndef PROTO_H__
+#define PROTO_H__
+
+#include "serialize.h"
+
+class message{
+private:
+    std::string fname;
+public:
+    message(std::string s): fname(s){}
+    std::string &getfname(){
+        return fname;
+    }
+    virtual serialize &serialization(serialize &s) = 0;
+};
+
+
+#endif
+```
+
+#### Transobject.h
+
+```C++
+#ifndef TRANSOBJECT_H__
+#define TRANSOBJECT_H__
+
+#include "serialize.h"
+class valtype{
+public:
+    int a, b;
+    serialize &serialization(serialize &s){
+        s << a << b;
+        return s;
+    }
+    serialize &deserialization(serialize &s){
+        s >> a >> b;
+        return s;
+    }
+};
+
+#endif
+```
+
+#### Funparam.h
+
+```C++
+#ifndef FUNPARAM_H__
+#define FUNPARAM_H__
+
+#include "proto.h"
+#include "transobject.h"
+class msgtest : public message{
+private:
+    int a, b, c;
+
+public:
+    msgtest(std::string s, int a, int b, int c) : message(s), a(a), b(b), c(c) {}
+    virtual serialize &serialization(serialize &s){
+        s << getfname() << a << b << c;
+        return s;
+    }
+};
+
+class msgtest2 : public message{
+private:
+    std::string str;
+
+public:
+    msgtest2(std::string s, std::string str) : message(s), str(str) {}
+    virtual serialize &serialization(serialize &s){
+        s << getfname() << str;
+        return s;
+    }
+};
+
+class msgtest3 : public message{
+private:
+    std::string str;
+
+public:
+    msgtest3(std::string s, std::string str) : message(s), str(str) {}
+    virtual serialize &serialization(serialize &s){
+        s << getfname() << str;
+        return s;
+    }
+};
+
+class msgtest4 : public message{
+public:
+    msgtest4(std::string s) : message(s) {}
+    virtual serialize &serialization(serialize &s){
+        s << getfname();
+        return s;
+    }
+};
+
+class msgtest5 : public message{
+private:
+    valtype tmp;
+
+public:
+    msgtest5(std::string s, valtype tmp) : message(s), tmp(tmp) {}
+    virtual serialize &serialization(serialize &s){
+        s << getfname() << tmp;
+        return s;
+    }
+};
+
+class msgtest6 : public message{
+private:
+    double a;
+public:
+    msgtest6(std::string s, double a) : message(s), a(a) {}
+    virtual serialize &serialization(serialize &s){
+        s << getfname() << a;
+        return s;
+    }
+};
+
+#endif
 ```
