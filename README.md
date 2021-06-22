@@ -62,7 +62,9 @@ void test5(valtype tmp){
     std::cout << tmp.b << std::endl;
 }
 
-
+double test6(double a){
+    return --a;
+}
 
 A tmp;
 
@@ -75,6 +77,7 @@ int main(){
     tmp.a = 789;
     server.bind("test4",&A::test4,&tmp);
     server.bind("test5",test5);
+    server.bind("test6",test6);
     server.run();
     return 0;
 }
@@ -102,6 +105,7 @@ int main(){
     tmp.a = 456;
     tmp.b = 654;
     client.call<void>("test5",tmp);
+    std::cout << client.call<double>("test6",3.14) << std::endl;
     return 0;
 }
 ```
