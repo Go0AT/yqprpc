@@ -3,17 +3,15 @@
 
 #include "serialize.h"
 
-class valtype{
+class message{
+private:
+    std::string fname;
 public:
-    int a,b;
-    serialize &serialization(serialize &s){
-        s << a << b;
-        return s;
+    message(std::string s): fname(s){}
+    std::string &getfname(){
+        return fname;
     }
-    serialize &deserialization(serialize &s){
-        s >> a >> b;
-        return s;
-    }
+    virtual serialize &serialization(serialize &s) = 0;
 };
 
 
