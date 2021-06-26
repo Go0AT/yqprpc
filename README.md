@@ -1,6 +1,6 @@
 # yqprpc
 
-可以定义自己想要当作参数传输的对象，把对象声明放在transobject.h中，需要实现 serialize &serialization(serialize &s)和serialize &deserialization(serialize &s)方法，客户端在使用call<>()时，需要传入调用远程函数需要的参数类(继承自message虚基类(放于proto.h中)，需要实现virtual serialize &serialization(serialize &s)方法)，参数类存放于funparam.h中，使用参数类可以使服务器bind的可被远程调用的函数所需要的参数的数量不受限制(把需要调用的函数用新函数包装起来，相当于让用户解决了这个问题)(之前想过用C++ 11泛型解决，还没想到解决办法)。框架使用函数名作为键，所以若函数同名，则会取消先前绑定的同名函数。本框架假设在网络传输时不会出现错误，本框架使用C++ 11编译。
+可以定义自己想要当作参数传输的对象，把对象声明放在transobject.h中，需要实现 serialize &serialization(serialize &s)和serialize &deserialization(serialize &s)和size_t serializesize()方法，客户端在使用call<>()时，需要传入调用远程函数需要的参数类(继承自message虚基类(放于proto.h中)，需要实现virtual serialize &serialization(serialize &s)方法以及virtual size_t serializesize()方法)，参数类存放于funparam.h中，使用参数类可以使服务器bind的可被远程调用的函数所需要的参数的数量不受限制(把需要调用的函数用新函数包装起来，相当于让用户解决了这个问题)(之前想过用C++ 11泛型解决，还没想到解决办法)。框架使用函数名作为键，所以若函数同名，则会取消先前绑定的同名函数。使用本框架时，可以通过函数返回值val_t类型的issuccess()方法查看远程调用是否成功，val_t中还有原本函数调用的返回值(唯一可能没有解决的问题是connect的时如果网不好，会等待75s才会报连接超时错误)，本框架使用C++ 11编译。
 
 #### 下面是一个小例子
 
