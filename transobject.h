@@ -13,6 +13,9 @@ public:
         s >> a >> b;
         return s;
     }
+    size_t serializesize(){
+        return sizeof(a) + sizeof(b);
+    }
 };
 
 #endif

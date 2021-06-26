@@ -12,6 +12,7 @@ public:
         return fname;
     }
     virtual serialize &serialization(serialize &s) = 0;
+    virtual size_t serializesize() = 0;
 };
 
 

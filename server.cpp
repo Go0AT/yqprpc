@@ -59,6 +59,8 @@ int main(){
     server.bind("test4",&A::test4,&tmp);
     server.bind("test5",test5);
     server.bind("test6",test6);
-    server.run();
+    server.servstart();
+    int tmp; scanf("%d",&tmp);
+    server.servclose();
     return 0;
 }

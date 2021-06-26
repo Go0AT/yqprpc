@@ -28,7 +28,7 @@ struct class_serialize{
     template <typename U, serialize &(U::*)(serialize &) = &U::serialization>
     static constexpr bool check(U *){return true;}
     static constexpr bool check(...){return false;}
-    static constexpr bool ret = check(static_cast<T *>(0));
+    static constexpr bool ret = check(static_cast<typename std::remove_reference<T>::type *>(0));
 };
 
 template <typename T>
@@ -36,7 +36,7 @@ struct class_deserialize{
     template <typename U, serialize &(U::*)(serialize &) = &U::deserialization>
     static constexpr bool check(U *){return true;}
     static constexpr bool check(...){return false;}
-    static constexpr bool ret = check(static_cast<T *>(0));
+    static constexpr bool ret = check(static_cast<typename std::remove_reference<T>::type *>(0));
 };
 
 class serialize{
@@ -60,10 +60,16 @@ public:
     void input(T &t);
     template <typename T,typename std::enable_if<!class_serialize<T>::ret,T>::type * = nullptr>
     void input(T &t);
+    // template <typename T, typename std::enable_if<!class_serialize<T>::ret, T>::type * = nullptr>
+    // void input(T &&t);
     template <typename T>
-    serialize &operator >>(T &t);
+    serialize &operator>>(T &t);
+    template <typename T>
+    serialize &operator >>(T &&t);
     template <typename T>
     serialize &operator <<(T &t);
+    template <typename T>
+    serialize &operator <<(T &&t);
 };
 
 
@@ -74,7 +80,19 @@ serialize &serialize::operator >> (T &t){
 }
 
 template <typename T>
+serialize &serialize::operator >> (T &&t){
+    output(t);
+    return *this;
+}
+
+template <typename T>
 serialize &serialize::operator << (T &t){
+    input(t);
+    return *this;
+}
+
+template <typename T>
+serialize &serialize::operator << (T &&t){
     input(t);
     return *this;
 }
@@ -103,6 +121,12 @@ void serialize::input(T &t){
     T val = byteorder::hotone(t);
     iodevice.input((const char *)&val, sizeof(T));
 }
+
+// template <typename T, typename std::enable_if<!class_serialize<T>::ret, T>::type *>
+// void serialize::input(T &&t){
+//     T val = byteorder::hotone(t);
+//     iodevice.input((const char *)&val, sizeof(T));
+// }
 
 template<>
 void serialize::input(std::string &s);

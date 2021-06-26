@@ -13,7 +13,11 @@ public:
         s << getfname() << a << b << c;
         return s;
     }
+    virtual size_t serializesize(){
+        return sizeof(uint32_t) + getfname().size() + sizeof(a) + sizeof(b) + sizeof(c);
+    }
 };
+
 
 class msgtest2 : public message{
 private:
@@ -24,6 +28,9 @@ public:
     virtual serialize &serialization(serialize &s){
         s << getfname() << str;
         return s;
+    }
+    virtual size_t serializesize(){
+        return 2 * sizeof(uint32_t) + getfname().size() + str.size();
     }
 };
 
@@ -37,6 +44,9 @@ public:
         s << getfname() << str;
         return s;
     }
+    virtual size_t serializesize(){
+        return 2 * sizeof(uint32_t) + getfname().size() + str.size();
+    }
 };
 
 class msgtest4 : public message{
@@ -45,6 +55,9 @@ public:
     virtual serialize &serialization(serialize &s){
         s << getfname();
         return s;
+    }
+    virtual size_t serializesize(){
+        return sizeof(uint32_t) + getfname().size();
     }
 };
 
@@ -58,6 +71,9 @@ public:
         s << getfname() << tmp;
         return s;
     }
+    virtual size_t serializesize(){
+        return sizeof(uint32_t) + getfname().size() + tmp.serializesize();
+    }
 };
 
 class msgtest6 : public message{
@@ -68,6 +84,9 @@ public:
     virtual serialize &serialization(serialize &s){
         s << getfname() << a;
         return s;
+    }
+    virtual size_t serializesize(){
+        return sizeof(uint32_t) + getfname().size() + sizeof(a);
     }
 };
 
