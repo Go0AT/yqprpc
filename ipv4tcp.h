@@ -9,6 +9,7 @@ class ipv4tcp{
 private:
     int listensd;
     int connectsd;
+    int timeout;
     bool open;
     bool writen(int sd,const char *s,size_t lens);
 public:
@@ -20,6 +21,7 @@ public:
     bool sendfuncmsg(const char *s,size_t lens);
     bool getret(streambuffer &buf);
     void sendret(const char *s,size_t lens);
+    void settimeout(int timeout);
     int getconnectsd();
     int getlistensd();
     static void setnoblock(int sd);

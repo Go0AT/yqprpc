@@ -6,6 +6,7 @@
 void test(){
     yqprpc client;
     client.asclient("127.0.0.1", 2021);
+    client.settimeout(5);
     auto ret = client.call<int>(msgtest("test", 1, 2, 3));
     if (ret.issuccess()) printf("ret = %d\n", ret);
     else printf("error\n");
@@ -22,13 +23,14 @@ void test(){
     auto test6 = client.call<double>(msgtest6("test6", 3.14));
     if (test6.issuccess()) std::cout << test6.getval() << std::endl;
     else printf("error\n");
+    return ;
 }
 
 int main(){
-    std::vector<std::thread> vec(500);
-    for(int i = 0 ; i < 500 ; i++ )
+    std::vector<std::thread> vec(1000);
+    for(int i = 0 ; i < 1000 ; i++ )
         vec[i] = std::thread(test);
-    for(int i = 0 ; i < 500 ; i++ )
+    for(int i = 0 ; i < 1000 ; i++ )
         vec[i].join();
     // for(int i = 0 ; i < 9 ; i++ )
     //     fork();

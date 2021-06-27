@@ -70,6 +70,7 @@ public:
     void run();
     void servstart();
     void servclose();
+    void settimeout(int timeout);
 
     template<typename F>
     void bind(std::string fname,F fun);

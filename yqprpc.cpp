@@ -11,6 +11,10 @@ void yqprpc::asclient(std::string serip, int port){
     this->sport = port;
 }
 
+void yqprpc::settimeout(int timeout){
+    network.settimeout(timeout);
+}
+
 void yqprpc::asserver(int port){
     this->sport = port;
 }
