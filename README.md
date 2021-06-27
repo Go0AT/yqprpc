@@ -1,8 +1,10 @@
 # yqprpc
 
-可以定义自己想要当作参数传输的对象，把对象声明放在transobject.h中，需要实现 serialize &serialization(serialize &s)和serialize &deserialization(serialize &s)和size_t serializesize()方法，客户端在使用call<>()时，需要传入调用远程函数需要的参数类(继承自message虚基类(放于proto.h中)，需要实现virtual serialize &serialization(serialize &s)方法以及virtual size_t serializesize()方法)，参数类存放于funparam.h中，使用参数类可以使服务器bind的可被远程调用的函数所需要的参数的数量不受限制(把需要调用的函数用新函数包装起来，相当于让用户解决了这个问题)(之前想过用C++ 11泛型解决，还没想到解决办法)。框架使用函数名作为键，所以若函数同名，则会取消先前绑定的同名函数。使用本框架时，可以通过函数返回值val_t类型的issuccess()方法查看远程调用是否成功，val_t中还有原本函数调用的返回值(唯一可能没有解决的问题是connect的时如果网不好，会等待75s才会报连接超时错误)，本框架使用C++ 11编译。
+可以定义自己想要当作参数传输的对象，把对象声明放在transobject.h中，需要实现 serialize &serialization(serialize &s)和serialize &deserialization(serialize &s)和size_t serializesize()方法，客户端在使用call<>()时，需要传入调用远程函数需要的参数类(继承自message虚基类(放于proto.h中)，需要实现virtual serialize &serialization(serialize &s)方法以及virtual size_t serializesize()方法)，参数类存放于funparam.h中，使用参数类可以使服务器bind的可被远程调用的函数所需要的参数的数量不受限制(把需要调用的函数用新函数包装起来，相当于让用户解决了这个问题)(之前想过用C++ 11泛型解决，还没想到解决办法)。框架使用函数名作为键，所以若函数同名，则会取消先前绑定的同名函数。使用本框架时，可以通过函数返回值val_t类型的issuccess()方法查看远程调用是否成功，val_t中还有原本函数调用的返回值(可以设置client调用connect调用的超时时间(以秒为单位)，默认值为75s)，本框架使用C++ 11编译。
 
-#### 下面是一个小例子
+#### 性能测试
+对于下面的例子，如果客户端不调用stdio的话，那么客户端发出6000(1000并发，每个线程请求6次)个请求且得到结果大约耗时0.7s,如果将得到的返回值打印出来，那么耗时0.9s~1.0s，如果发现服务器丢弃了某些连接，一个原因时listen()函数的第二个参数设置过小，另一个原因是内核给出的半连接队列和已连接队列较小，需要扩大/proc/sys/net/ipv4/tcp_max_syn_backlog和/proc/sys/net/core/somaxconn的数值。
+#### 小例子
 
 #### Server
 
@@ -68,7 +70,9 @@ int main(){
     server.bind("test4",&A::test4,&tmp);
     server.bind("test5",test5);
     server.bind("test6",test6);
-    server.run();
+    server.servstart();
+    int tmp; scanf("%d",&tmp);
+    server.servclose();
     return 0;
 }
 ```
@@ -78,24 +82,38 @@ int main(){
 ```C++
 #include "yqprpc.h"
 #include "funparam.h"
+#include <vector>
 #include <cstdio>
 #include <iostream>
-
-int main(){
+void test(){
     yqprpc client;
-    client.asclient("127.0.0.1",2021);
-    int ret = client.call<int>(msgtest("test",1,2,3));
-    printf("ret = %d\n",ret);
+    client.asclient("127.0.0.1", 2021);
+    client.settimeout(5);
+    auto ret = client.call<int>(msgtest("test", 1, 2, 3));
+    if (ret.issuccess()) printf("ret = %d\n", ret);
+    else printf("error\n");
     std::string str("123");
-    client.call<void>(msgtest2("test2",str));
-    str = client.call<std::string>(msgtest3("test3",str));
-    std::cout << str << std::endl;
-    client.call<void>(msgtest4("test4"));
+    if(!client.call<void>(msgtest2("test2", str)).issuccess()) printf("error\n");
+    auto ret3 = client.call<std::string>(msgtest3("test3", str));
+    if (ret3.issuccess()) std::cout << ret3.getval() << std::endl;
+    else printf("error\n");
+    if(!client.call<void>(msgtest4("test4")).issuccess()) printf("error\n");
     valtype tmp;
     tmp.a = 456;
     tmp.b = 654;
-    client.call<void>(msgtest5("test5",tmp));
-    std::cout << client.call<double>(msgtest6("test6",3.14)) << std::endl;
+    if(!client.call<void>(msgtest5("test5", tmp)).issuccess()) printf("error\n");
+    auto test6 = client.call<double>(msgtest6("test6", 3.14));
+    if (test6.issuccess()) std::cout << test6.getval() << std::endl;
+    else printf("error\n");
+    return ;
+}
+
+int main(){
+    std::vector<std::thread> vec(1000);
+    for(int i = 0 ; i < 1000 ; i++ )
+        vec[i] = std::thread(test);
+    for(int i = 0 ; i < 1000 ; i++ )
+        vec[i].join();
     return 0;
 }
 ```
@@ -117,6 +135,7 @@ public:
         return fname;
     }
     virtual serialize &serialization(serialize &s) = 0;
+    virtual size_t serializesize() = 0;
 };
 
 
@@ -141,6 +160,9 @@ public:
         s >> a >> b;
         return s;
     }
+    size_t serializesize(){
+        return sizeof(a) + sizeof(b);
+    }
 };
 
 #endif
@@ -164,7 +186,11 @@ public:
         s << getfname() << a << b << c;
         return s;
     }
+    virtual size_t serializesize(){
+        return sizeof(uint32_t) + getfname().size() + sizeof(a) + sizeof(b) + sizeof(c);
+    }
 };
+
 
 class msgtest2 : public message{
 private:
@@ -175,6 +201,9 @@ public:
     virtual serialize &serialization(serialize &s){
         s << getfname() << str;
         return s;
+    }
+    virtual size_t serializesize(){
+        return 2 * sizeof(uint32_t) + getfname().size() + str.size();
     }
 };
 
@@ -188,6 +217,9 @@ public:
         s << getfname() << str;
         return s;
     }
+    virtual size_t serializesize(){
+        return 2 * sizeof(uint32_t) + getfname().size() + str.size();
+    }
 };
 
 class msgtest4 : public message{
@@ -196,6 +228,9 @@ public:
     virtual serialize &serialization(serialize &s){
         s << getfname();
         return s;
+    }
+    virtual size_t serializesize(){
+        return sizeof(uint32_t) + getfname().size();
     }
 };
 
@@ -209,6 +244,9 @@ public:
         s << getfname() << tmp;
         return s;
     }
+    virtual size_t serializesize(){
+        return sizeof(uint32_t) + getfname().size() + tmp.serializesize();
+    }
 };
 
 class msgtest6 : public message{
@@ -219,6 +257,9 @@ public:
     virtual serialize &serialization(serialize &s){
         s << getfname() << a;
         return s;
+    }
+    virtual size_t serializesize(){
+        return sizeof(uint32_t) + getfname().size() + sizeof(a);
     }
 };
 
